@@ -1,5 +1,6 @@
 package org.example.orbit.Service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.orbit.EnumsTags.Country;
@@ -11,13 +12,13 @@ import org.orekit.propagation.analytical.tle.TLE;
 import org.orekit.time.AbsoluteDate;
 import org.orekit.time.DateTimeComponents;
 import org.orekit.time.TimeScalesFactory;
-import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.orekit.data.DataContext;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,10 +28,36 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class TleLoaderService {
+
     private final SatelliteRepository satelliteRepository;
     private final RestClient celestrakRestClient;
 
+
+    private final DataContext dataContext;
+
     private record SatcatEntry(String owner, String objectType) {}
+
+    @PostConstruct
+    public void init() {
+        log.info(">>> [INIT] Запуск первичной загрузки данных...");
+        try {
+            loadActiveSatellites();
+        } catch (Exception e) {
+            log.error(">>> [INIT] Ошибка: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * ПУНКТ 6: Автоматическое обновление данных по расписанию
+     * Cron "0 0 0 * * *" означает: каждую полночь в 00:00:00 (по времени сервера)
+     * протестил , вроде работает
+     */
+    @Scheduled(cron = "0 25 20 * * *")
+    public void scheduledUpdate() {
+        log.info(">>> [SCHEDULED] Запуск планового обновления TLE...");
+        int count = loadActiveSatellites();
+        log.info(">>> [SCHEDULED] Плановое обновление завершено. Обработано спутников: {}", count);
+    }
 
     public int loadActiveSatellites() {
         log.info("loading satcat...");

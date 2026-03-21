@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 
 import java.io.File;
 import java.io.InputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -27,29 +28,32 @@ public class OrekitConfig {
 
     @Bean
     public DataContext orekitInit() throws Exception {
-        // 1. Создаем временную папку в файловой системе ОС (внутри Docker-контейнера)
+        URL url = getClass().getClassLoader().getResource("orekit-data");
+        DataProvidersManager manager = DataContext.getDefault().getDataProvidersManager();
+
+        // Если мы запускаем код локально из IDE
+        if (url != null && url.getProtocol().equals("file")) {
+            File orekitData = new File(url.toURI());
+            manager.addProvider(new DirectoryCrawler(orekitData));
+            return DataContext.getDefault();
+        }
+
+        // Если мы работаем внутри Docker (запуск из JAR-архива) пока не тестил
         Path tempDir = Files.createTempDirectory("orekit-data-temp");
         tempDir.toFile().deleteOnExit();
 
-        // 2. Ищем все файлы orekit-data внутри JAR-архива с помощью Spring
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         Resource[] resources = resolver.getResources("classpath*:orekit-data/**");
 
         for (Resource resource : resources) {
-            // isReadable() отсеет папки, оставив только сами файлы с данными
             if (resource.isReadable()) {
                 String urlStr = resource.getURL().toString();
-
-                // Вырезаем относительный путь начиная с "orekit-data"
                 int index = urlStr.lastIndexOf("orekit-data");
                 if (index != -1) {
                     String relativePath = urlStr.substring(index);
                     Path destPath = tempDir.resolve(relativePath);
-
-                    // Создаем подпапки, если они есть
                     Files.createDirectories(destPath.getParent());
 
-                    // 3. Копируем файл из архива во временную папку на диск
                     try (InputStream is = resource.getInputStream()) {
                         Files.copy(is, destPath, StandardCopyOption.REPLACE_EXISTING);
                     }
@@ -58,9 +62,7 @@ public class OrekitConfig {
             }
         }
 
-        // 4. Натравливаем Orekit на нашу распакованную временную папку
         File orekitDataFile = tempDir.resolve("orekit-data").toFile();
-        DataProvidersManager manager = DataContext.getDefault().getDataProvidersManager();
         manager.addProvider(new DirectoryCrawler(orekitDataFile));
 
         return DataContext.getDefault();
