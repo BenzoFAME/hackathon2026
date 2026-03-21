@@ -19,9 +19,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Эндпоинт для подключения. Разрешаем CORS и включаем фолбэк SockJS хыы
+        // Эндпоинт для подключения. Разрешаем CORS строго для localhost:3000
         registry.addEndpoint("/ws/satellites")
-                .setAllowedOriginPatterns("*")
+                .setAllowedOrigins("http://localhost:3000")
                 .withSockJS();
     }
 }

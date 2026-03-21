@@ -57,3 +57,9 @@ Accept: application/json
 # (широта и долгота для тестов)
 GET {{host}}/api/satellites/25544/passes?lat=47.2313&lon=39.7233&hours=24
 Accept: application/json
+
+### Батч-предсказание (Все активные LEO спутники над точкой)
+# Узнать, какие спутники пролетят над Ростовом-на-Дону в ближайшие 2 часа
+# Осторожно: этот запрос использует много математики, первый запуск может занять пару секунд!
+GET {{host}}/api/satellites/passes/batch?lat=47.2313&lon=39.7233&hoursAhead=2
+Accept: application/json

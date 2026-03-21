@@ -8,6 +8,7 @@ import org.example.orbit.ModelDto.PassPredictionDto;
 import org.example.orbit.ModelDto.SatPositionDto;
 import org.example.orbit.ModelDto.SatelliteCardDto;
 import org.example.orbit.ModelDto.SatelliteDto;
+import org.example.orbit.Service.PassPredictionService;
 import org.example.orbit.Service.SatelliteService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +24,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SatelliteController {
     private final SatelliteService satelliteService;
+    private final PassPredictionService passPredictionService;
+
     @GetMapping
     public Page<SatelliteDto> list(@RequestParam(defaultValue = "0") int page,
                                    @RequestParam(defaultValue = "50") int size){
@@ -64,5 +67,18 @@ public class SatelliteController {
                                           @RequestParam double lon,
                                           @RequestParam(defaultValue = "24") int hours){
         return satelliteService.getPasses(noradId, lat, lon, hours);
+    }
+
+    @GetMapping("/passes/batch")
+    public ResponseEntity<List<PassPredictionDto>> getBatchPasses(
+            @RequestParam double lat,
+            @RequestParam double lon,
+            @RequestParam(defaultValue = "2") int hoursAhead) {
+
+        // Обязательно ограничиваем время предсказания
+        // иначе без кэша сервер может задуматься очень надолго пу пу пу
+        int safeHours = Math.min(hoursAhead, 12);
+
+        return ResponseEntity.ok(passPredictionService.predictBatch(lat, lon, safeHours));
     }
 }

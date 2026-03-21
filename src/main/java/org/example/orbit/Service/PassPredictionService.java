@@ -1,8 +1,13 @@
 package org.example.orbit.Service;
 
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.orbit.EnumsTags.ObjectType;
+import org.example.orbit.EnumsTags.OrbitType;
 import org.example.orbit.Model.Satellite;
 import org.example.orbit.ModelDto.PassPredictionDto;
+import org.example.orbit.repository.SatelliteRepository;
 import org.hipparchus.geometry.euclidean.threed.Vector3D;
 import org.orekit.bodies.BodyShape;
 import org.orekit.bodies.GeodeticPoint;
@@ -18,6 +23,7 @@ import org.orekit.time.TimeScalesFactory;
 import org.orekit.utils.Constants;
 import org.orekit.utils.IERSConventions;
 import org.springframework.stereotype.Service;
+import java.util.Comparator;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,12 +32,15 @@ import java.util.List;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class PassPredictionService {
 
     //создает систему координат
     private Frame earthFrame;
     //математическая модель формы земли о
     private BodyShape earth;
+
+    private final SatelliteRepository satelliteRepository;
 
     private Frame getEarthFrame() {
         if (earthFrame == null) {
@@ -119,10 +128,39 @@ public class PassPredictionService {
                 }
                 current = current.shiftedBy(stepSec);
             }
-        } catch (Exception e) {
-            log.error("Ошибка расчета пролетов: {}", e.getMessage());
-            throw new RuntimeException("ошибка расчета пролетов", e);
-        }
+        }  catch (Exception e) {
+        log.warn("Ошибка расчета пролетов для {}: {}", sat.getName(), e.getMessage());
+        return new ArrayList<>();
+    }
         return passes;
+    }
+
+
+
+
+    public List<PassPredictionDto> predictBatch(double lat, double lon, int hoursAhead) {
+        //  Берем только LEO орбиту и ТОЛЬКО полезную нагрузку (игнорируем мусор)
+        List<Satellite> leoSatellites = satelliteRepository.findByOrbitType(OrbitType.LEO_LOW_EARTH_ORBIT)
+                .stream()
+                .filter(sat -> sat.getObjectType() == ObjectType.PAYLOAD_PAYLOAD)
+                // Если база все еще огромная, для демо можно раскомментировать лимит:
+                 .limit(100)
+                .toList();
+
+        long startTime = System.currentTimeMillis();
+
+        //  Считаем параллельно
+        List<PassPredictionDto> allPasses = leoSatellites.parallelStream()
+                .map(sat -> predict(sat, lat, lon, hoursAhead))
+                .flatMap(List::stream)
+                .sorted(Comparator.comparing(PassPredictionDto::getRiseTime)) // Сортируем по времени появления
+                .limit(100)
+                .toList();
+
+        long endTime = System.currentTimeMillis();
+        log.info("Рассчитано и отфильтровано {} ближайших пролетов над [{}, {}] за {} мс",
+                allPasses.size(), lat, lon, (endTime - startTime));
+
+        return allPasses;
     }
 }
