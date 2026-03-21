@@ -154,6 +154,13 @@ public class TleLoaderService {
                 TLE tle = new TLE(line1, line2);
                 SatcatEntry entry = satcatMap.get(tle.getSatelliteNumber());
 
+                Country country = entry != null ?Country.fromCode(entry.owner) : Country.UNKNOWN;
+                ObjectType objectType = entry != null ? ObjectType.fromCode(entry.objectType) : ObjectType.UNKNOWN;
+
+                if (country == Country.UNKNOWN || objectType == ObjectType.UNKNOWN) {
+                    continue;
+                }
+
                 Satellite sat = Satellite.builder()
                         .name(name)
                         .noradId(tle.getSatelliteNumber())
@@ -167,8 +174,8 @@ public class TleLoaderService {
                         .apogeeKm(computeApogee(tle))
                         .perigeeKm(computePerigee(tle))
                         .orbitType(detectOrbitType(computeApogee(tle), computePerigee(tle), tle.getE()))
-                        .country(entry != null ? Country.fromCode(entry.owner()) : Country.UNKNOWN)
-                        .objectType(entry != null ? ObjectType.fromCode(entry.objectType()) : ObjectType.UNKNOWN)
+                        .country(country)
+                        .objectType(objectType)
                         .build();
                 result.add(sat);
             } catch (Exception e) {
