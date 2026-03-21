@@ -1,0 +1,59 @@
+### Переменные среды (в IDEA можно вынести в env.json)
+@host = http://localhost:8888
+
+# ==========================================
+# 1. АДМИНКА (Запуск обновления БД)
+# ==========================================
+
+### Загрузить/обновить спутники с CelesTrak (выполни первым!)
+POST {{host}}/api/admin/reload
+Content-Type: application/json
+
+# ==========================================
+# 2. ПОИСК И ФИЛЬТРЫ
+# ==========================================
+
+### Получить список спутников (с пагинацией)
+GET {{host}}/api/satellites?page=0&size=10
+Accept: application/json
+
+### Поиск спутника по NORAD ID (например, МКС - 25544)
+GET {{host}}/api/satellites/search?query=25544
+Accept: application/json
+
+### Поиск спутника по названию
+GET {{host}}/api/satellites/search?query=ISS
+Accept: application/json
+
+### Фильтрация (Низкая околоземная орбита + США)
+GET {{host}}/api/satellites/filter?orbitType=LEO_LOW_EARTH_ORBIT&country=USA_UNITED_STATES
+Accept: application/json
+
+# ==========================================
+# 3. ОРБИТАЛЬНЫЕ ДАННЫЕ И МАТЕМАТИКА (SGP4)
+# ==========================================
+
+### Полная карточка спутника (все параметры + текущая позиция)
+GET {{host}}/api/satellites/25544/card
+Accept: application/json
+
+### Текущая позиция МКС
+GET {{host}}/api/satellites/25544/position
+Accept: application/json
+
+### Позиция МКС в заданное время (ISO-8601)
+GET {{host}}/api/satellites/25544/position?time=2026-03-21T10:00:00Z
+Accept: application/json
+
+### Трек орбиты МКС (массив точек для отрисовки линии на карте)
+GET {{host}}/api/satellites/25544/track
+Accept: application/json
+
+# ==========================================
+# 4. ПРЕДСКАЗАНИЕ ПРОЛЕТОВ
+# ==========================================
+
+### Пролеты МКС над Ростовом-на-Дону на 24 часа
+# (широта и долгота для тестов)
+GET {{host}}/api/satellites/25544/passes?lat=47.2313&lon=39.7233&hours=24
+Accept: application/json
