@@ -10,6 +10,8 @@ public class SatelliteMapper {
         return SatelliteDto.builder()
                 .noradId(satellite.getNoradId())
                 .name(satellite.getName())
+                .tleLine1(satellite.getTleLine1())  // ← добавь
+                .tleLine2(satellite.getTleLine2())
                 .country(satellite.getCountry())
                 .orbitType(satellite.getOrbitType())
                 .objectType(satellite.getObjectType())

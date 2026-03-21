@@ -2,6 +2,8 @@ package org.example.orbit.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.orbit.EnumsTags.Country;
+import org.example.orbit.EnumsTags.ObjectType;
 import org.example.orbit.EnumsTags.OrbitType;
 import org.example.orbit.Model.Satellite;
 import org.example.orbit.repository.SatelliteRepository;
@@ -17,30 +19,37 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TleLoaderService {
     private final SatelliteRepository satelliteRepository;
-    private final RestClient celestrakRestClient; // ← было WebClient
+    private final RestClient celestrakRestClient;
+
+    private record SatcatEntry(String owner, String objectType) {}
 
     public int loadActiveSatellites() {
-        log.info("loading");
+        log.info("loading satcat...");
+        Map<Integer, SatcatEntry> satcatMap = loadSatcat();
+
+        log.info("loading TLE...");
         String rawTle;
         try {
             rawTle = celestrakRestClient.get()
                     .uri("/NORAD/elements/gp.php?GROUP=active&FORMAT=tle")
                     .retrieve()
                     .body(String.class);
-            log.info("complete {} ", rawTle.length());
+            log.info("TLE loaded: {} chars", rawTle.length());
         } catch (Exception e) {
             log.error("error {}", e.getMessage());
             throw new RuntimeException("error", e);
         }
 
-        List<Satellite> satellites = parseTleText(rawTle);
+        List<Satellite> satellites = parseTleText(rawTle, satcatMap);
 
         int saved = 0;
         for (Satellite sat : satellites) {
@@ -52,67 +61,105 @@ public class TleLoaderService {
                                     existing.setTleLine2(sat.getTleLine2());
                                     existing.setEpochTime(sat.getEpochTime());
                                     existing.setMeanMotion(sat.getMeanMotion());
+                                    existing.setCountry(sat.getCountry());
+                                    existing.setObjectType(sat.getObjectType());
                                     satelliteRepository.save(existing);
                                 },
                                 () -> satelliteRepository.save(sat)
                         );
                 saved++;
-            }catch (Exception e){
-                log.warn("error {}: {}" , sat.getNoradId(), e.getMessage());
+            } catch (Exception e) {
+                log.warn("error {}: {}", sat.getNoradId(), e.getMessage());
             }
         }
-        log.info("save/update {} satellites" , saved);
+        log.info("save/update {} satellites", saved);
         return saved;
     }
 
-    private List<Satellite> parseTleText(String rawText){
-        List<Satellite> result = new ArrayList<>();
-        if (rawText == null || rawText.isBlank()) {
-            return result;
+    private Map<Integer, SatcatEntry> loadSatcat() {
+        Map<Integer, SatcatEntry> map = new HashMap<>();
+        try {
+            String csv = celestrakRestClient.get()
+                    .uri("/pub/satcat.csv")
+                    .retrieve()
+                    .body(String.class);
+
+            log.info("CSV length: {}", csv.length());
+            String[] lines = csv.split("\r?\n");
+            log.info("CSV lines count: {}", lines.length);
+            log.info("HEADER: {}", lines[0]);
+            if (lines.length > 1) log.info("ROW 1: {}", lines[1]);
+
+            for (int i = 1; i < lines.length; i++) {
+                String[] cols = lines[i].split(",", -1);
+                if (cols.length < 6) continue;
+                try {
+                    int noradId = Integer.parseInt(cols[2].trim());
+                    String objectType = cols[3].trim();
+                    String owner = cols[5].trim();
+                    if (noradId == 900) {
+                        log.info("SATCAT 900: objectType='{}' owner='{}'", objectType, owner);
+                    }
+                    map.put(noradId, new SatcatEntry(owner, objectType));
+                } catch (NumberFormatException ignored) {}
+            }
+            log.info("satcat loaded: {} entries", map.size());
+        } catch (Exception e) {
+            log.warn("Не удалось загрузить satcat: {} - {}", e.getClass().getSimpleName(), e.getMessage());
         }
+        return map;
+    }
+
+    private List<Satellite> parseTleText(String rawText, Map<Integer, SatcatEntry> satcatMap) {
+        List<Satellite> result = new ArrayList<>();
+        if (rawText == null || rawText.isBlank()) return result;
+
         String[] lines = rawText.split("\r?\n");
-        for (int i = 0; i + 2 < lines.length; i+=3) {
+        for (int i = 0; i + 2 < lines.length; i += 3) {
             String name = lines[i].trim();
-            String line1 = lines[i+1].trim();
-            String line2 = lines[i+2].trim();
+            String line1 = lines[i + 1].trim();
+            String line2 = lines[i + 2].trim();
             if (!line1.startsWith("1 ") || !line2.startsWith("2 ")) {
                 log.warn("Невалидные TLE строки для: {}", name);
                 continue;
             }
             try {
                 TLE tle = new TLE(line1, line2);
-                Satellite sat =  Satellite.builder()
+                SatcatEntry entry = satcatMap.get(tle.getSatelliteNumber());
+
+                Satellite sat = Satellite.builder()
                         .name(name)
                         .noradId(tle.getSatelliteNumber())
                         .tleLine1(line1)
                         .tleLine2(line2)
                         .inclination(Math.toDegrees(tle.getI()))
                         .eccentricity(tle.getE())
-                        .meanMotion(tle.getMeanMotion() * 86400/ (2*Math.PI))
+                        .meanMotion(tle.getMeanMotion() * 86400 / (2 * Math.PI))
                         .epochTime(toLocalDateTime(tle.getDate()))
                         .periodMinutes(computePeriod(tle.getMeanMotion()))
                         .apogeeKm(computeApogee(tle))
                         .perigeeKm(computePerigee(tle))
                         .orbitType(detectOrbitType(computeApogee(tle), computePerigee(tle), tle.getE()))
+                        .country(entry != null ? Country.fromCode(entry.owner()) : Country.UNKNOWN)
+                        .objectType(entry != null ? ObjectType.fromCode(entry.objectType()) : ObjectType.UNKNOWN)
                         .build();
                 result.add(sat);
-            }catch (Exception e){
+            } catch (Exception e) {
                 log.warn("Ошибка парсинга TLE для {}: {}", name, e.getMessage());
             }
         }
         return result;
     }
 
-    /// Период обращения в минутах из meanMotion
-    private double computePeriod(double meanMotionRadPerSec){
+    private double computePeriod(double meanMotionRadPerSec) {
         return (2 * Math.PI / meanMotionRadPerSec) / 60.0;
     }
-    /// Высота апогея  a*(1+e) - R_earth, где a — большая полуось
-    private double computeApogee(TLE tle){
+
+    private double computeApogee(TLE tle) {
         double mu = 398600.4418;
         double n = tle.getMeanMotion();
-        double a = Math.cbrt(mu / (n*n));
-        return a * (1 +tle.getE()) - 6371.0;
+        double a = Math.cbrt(mu / (n * n));
+        return a * (1 + tle.getE()) - 6371.0;
     }
 
     private double computePerigee(TLE tle) {
@@ -129,7 +176,6 @@ public class TleLoaderService {
         if (avgAlt < 35000)      return OrbitType.MEO_MEDIUM_EARTH_ORBIT;
         return OrbitType.GEO_GEOSTATIONARY_EARTH_ORBIT;
     }
-
 
     private LocalDateTime toLocalDateTime(AbsoluteDate date) {
         DateTimeComponents dtc = date.getComponents(TimeScalesFactory.getUTC());

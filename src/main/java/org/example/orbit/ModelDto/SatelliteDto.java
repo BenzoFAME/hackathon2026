@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 public class SatelliteDto {
     public Integer noradId;
     private String name;
+    public String tleLine1;
+    public String tleLine2;
     private Country country;
     private OrbitType orbitType;
     private ObjectType objectType;

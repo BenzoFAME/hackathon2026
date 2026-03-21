@@ -49,9 +49,9 @@ public class SatelliteService {
         }
     }
     /// фильтр
-    public List<SatelliteDto> filter (Country country , OrbitType orbitType,
-                                      ObjectType objectType){
-        return satelliteRepository.findByFilters(country , orbitType , objectType)
+    public List<SatelliteDto> filter(Country country, OrbitType orbitType, ObjectType objectType) {
+        return satelliteRepository
+                .findAll(SatelliteSpecification.filter(country, orbitType, objectType))
                 .stream().map(satelliteMapper::toDto).toList();
     }
     /// Текущая позиция
