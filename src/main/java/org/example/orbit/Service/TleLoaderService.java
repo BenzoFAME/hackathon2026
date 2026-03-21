@@ -52,7 +52,7 @@ public class TleLoaderService {
      * Cron "0 0 0 * * *" означает: каждую полночь в 00:00:00 (по времени сервера)
      * протестил , вроде работает
      */
-    @Scheduled(cron = "0 25 20 * * *")
+    @Scheduled(cron = "0 0 0  * * *")
     public void scheduledUpdate() {
         log.info(">>> [SCHEDULED] Запуск планового обновления TLE...");
         int count = loadActiveSatellites();

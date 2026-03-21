@@ -11,10 +11,12 @@ import org.example.orbit.ModelDto.SatelliteDto;
 import org.example.orbit.Service.SatelliteService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/satellites")
@@ -42,10 +44,16 @@ public class SatelliteController {
         Instant instant = (time != null) ? Instant.parse(time) : Instant.now();
         return satelliteService.getPosition(noradId, instant);
     }
+//    @GetMapping("/{noradId}/track")
+//    public List<SatPositionDto> track(@PathVariable Integer noradId){
+//        return satelliteService.getOrbitTrack(noradId);
+//    }
+
     @GetMapping("/{noradId}/track")
-    public List<SatPositionDto> track(@PathVariable Integer noradId){
-        return satelliteService.getOrbitTrack(noradId);
+    public ResponseEntity<Map<String, Object>> getOrbitTrack(@PathVariable Integer noradId) {
+        return ResponseEntity.ok(satelliteService.getOrbitTrackGeoJson(noradId));
     }
+
     @GetMapping("/{noradId}/card")
     public SatelliteCardDto card (@PathVariable Integer noradId){
         return satelliteService.getCard(noradId);
