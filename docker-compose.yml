@@ -46,7 +46,7 @@ services:
       - postgres
 
   orbit:
-    image: andrusha0502/orbit:v1.3
+    image: benzo1/orbit:v1.4
     container_name: orbit-app
     restart: always
     ports:
