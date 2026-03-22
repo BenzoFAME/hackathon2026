@@ -13,11 +13,14 @@ public class CorsConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**") // Применяем ко всем эндпоинтам (api/satellites и т.д.)
-                        .allowedOrigins("http://localhost:3000") // Явно разрешаем твой фронтенд
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Разрешаем все базовые HTTP-методы
-                        .allowedHeaders("*") // Разрешаем любые заголовки
-                        .allowCredentials(true); // Разрешаем передачу куки и токенов авторизации (если понадобятся)
+                registry.addMapping("/**")
+                        .allowedOrigins(
+                                "http://157.22.175.181",
+                                "http://157.22.175.181:3000"
+                        )
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
             }
         };
     }

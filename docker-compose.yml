@@ -46,13 +46,12 @@ services:
       - postgres
 
   orbit:
-    image: andrusha0502/orbit:v1.5
+    image: andrusha0502/orbit:v1.7
     container_name: orbit-app
     restart: always
     ports:
       - "8888:8888"
     environment:
-      # Переопределяем подключение к базе данных на сервис postgres
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/postgres
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: GFGF18101961
@@ -61,3 +60,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  frontend:
+    image: muurakamiii/satellite-tracker:latest
+    container_name: hackfront
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_USE_MOCK: "true"
+      NEXT_PUBLIC_ENABLE_WS: "false"
+      NEXT_PUBLIC_API_URL: "http://157.22.175.181:8888"
+    networks:
+      - backend
+    depends_on:
+      - orbit

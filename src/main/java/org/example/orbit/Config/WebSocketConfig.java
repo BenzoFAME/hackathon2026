@@ -12,16 +12,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        // Префикс для топиков, на которые будет подписываться фронт , Даня привет
         config.enableSimpleBroker("/topic");
         config.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Эндпоинт для подключения. Разрешаем CORS строго для localhost:3000
         registry.addEndpoint("/ws/satellites")
-                .setAllowedOrigins("http://localhost:3000")
+                .setAllowedOrigins(
+                        "http://157.22.175.181",
+                        "http://157.22.175.181:3000"
+                )
                 .withSockJS();
     }
 }
