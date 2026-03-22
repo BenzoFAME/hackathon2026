@@ -15,6 +15,6 @@ public class PassPredictionDto {
     private String riseTime; ///Время появления над горизонтов
     private String maxElevationTime;///Время максимальной высоты
     private String setTime;///Время ухода за горизонт
-    private Double maxEvelationDeg;///Максимальный угол возвышения(градусы)
+    private double maxElevationDeg;;///Максимальный угол возвышения(градусы)
     private Double durationMinutes;///Длительность пролета
 }

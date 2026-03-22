@@ -1,6 +1,5 @@
 package org.example.orbit.Service;
 
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.orbit.EnumsTags.ObjectType;
@@ -65,77 +64,79 @@ public class PassPredictionService {
                                            double lon, int hoursAhead) {
         List<PassPredictionDto> passes = new ArrayList<>();
         try {
-            //это парсинг данных
             TLE tle = new TLE(sat.getTleLine1(), sat.getTleLine2());
             TLEPropagator propagator = TLEPropagator.selectExtrapolator(tle);
-            /// Точка наблюдения на поверхности земли
-            GeodeticPoint geo = new GeodeticPoint(
-                    Math.toRadians(lat), Math.toRadians(lon), 0.0);
-            //это хуйня кароче как наш взгляд чтобы код мог считать угол возвышения аля на сколько сильно он высоко от нас
+
+            GeodeticPoint geo = new GeodeticPoint(Math.toRadians(lat), Math.toRadians(lon), 0.0);
             TopocentricFrame topoFrame = new TopocentricFrame(getEarth(), geo, "observer");
-            /// временной интервал поиска
-            AbsoluteDate startDate = new AbsoluteDate(Date.from(Instant.now()),
-                    TimeScalesFactory.getUTC());
+
+            AbsoluteDate startDate = new AbsoluteDate(Date.from(Instant.now()), TimeScalesFactory.getUTC());
             AbsoluteDate endDate = startDate.shiftedBy(hoursAhead * 3600.0);
-            /// Минимальный угол возвышения для видимостти 10 секундд
+
             double minElevation = Math.toRadians(10.0);
-            /// шаг сканирования 30 секунд
             double stepSec = 30.0;
-            //это кароче переменные состояния
+
             boolean inPass = false;
             AbsoluteDate riseTime = null;
             double maxElevation = 0;
             AbsoluteDate maxElevTime = null;
-            //тут начинается цикл который идет по времени каждые 30 секунд
+
             AbsoluteDate current = startDate;
             while (current.compareTo(endDate) <= 0) {
-                // этот спейс спрашивает SGP4 где спутник в по current
                 SpacecraftState state = propagator.propagate(current);
-                //хуйня берет позицию (позиция + скорость) , берем только позицию
                 Vector3D satPos = state.getPVCoordinates(getEarthFrame()).getPosition();
-                //считает угол возвышения
                 double elevation = topoFrame.getElevation(satPos, getEarthFrame(), current);
-                //тут начинается логика трех состояний, сейчас когда мы не в пролете спутника
+
                 if (!inPass && elevation >= minElevation) {
-                    /// Спутник появился над горизонтом!11
+                    // Спутник появился над горизонтом
                     inPass = true;
                     riseTime = current;
                     maxElevation = elevation;
                     maxElevTime = current;
-                    //тут спутник появился над горизонтов
                 } else if (inPass && elevation >= minElevation) {
-                    /// Отслеживаем максимум
+                    // Отслеживаем максимум
                     if (elevation > maxElevation) {
                         maxElevation = elevation;
                         maxElevTime = current;
                     }
-                    //тут спутник ушел за горизонт
                 } else if (inPass && elevation < minElevation) {
-                    /// Спутник зашел за горизонт
+                    // Спутник зашел за горизонт
                     inPass = false;
                     AbsoluteDate setTime = current;
                     double durationSec = setTime.durationFrom(riseTime);
-                    //тут сохраняем пролет
+
                     passes.add(PassPredictionDto.builder()
                             .noradId(sat.getNoradId())
                             .name(sat.getName())
                             .riseTime(riseTime.toString())
                             .maxElevationTime(maxElevTime.toString())
                             .setTime(setTime.toString())
-                            .maxEvelationDeg(Math.toDegrees(maxElevation))
+                            .maxElevationDeg(Math.toDegrees(maxElevation)) // Опечатка исправлена
                             .durationMinutes(durationSec / 60.0)
                             .build());
                 }
                 current = current.shiftedBy(stepSec);
             }
+
+            if (inPass) {
+                double durationSec = endDate.durationFrom(riseTime);
+                passes.add(PassPredictionDto.builder()
+                        .noradId(sat.getNoradId())
+                        .name(sat.getName())
+                        .riseTime(riseTime.toString())
+                        .maxElevationTime(maxElevTime.toString())
+                        .setTime(endDate.toString())
+                        .maxElevationDeg(Math.toDegrees(maxElevation))
+                        .durationMinutes(durationSec / 60.0)
+                        .build());
+            }
+
         }  catch (Exception e) {
-        log.warn("Ошибка расчета пролетов для {}: {}", sat.getName(), e.getMessage());
-        return new ArrayList<>();
-    }
+            log.warn("Ошибка расчета пролетов для {}: {}", sat.getName(), e.getMessage());
+            return new ArrayList<>();
+        }
         return passes;
     }
-
-
 
 
     public List<PassPredictionDto> predictBatch(double lat, double lon, int hoursAhead) {
@@ -143,13 +144,12 @@ public class PassPredictionService {
         List<Satellite> leoSatellites = satelliteRepository.findByOrbitType(OrbitType.LEO_LOW_EARTH_ORBIT)
                 .stream()
                 .filter(sat -> sat.getObjectType() == ObjectType.PAYLOAD_PAYLOAD)
-                // Если база все еще огромная, для демо можно раскомментировать лимит:
                  .limit(100)
                 .toList();
 
         long startTime = System.currentTimeMillis();
 
-        //  Считаем параллельно
+        //  Считаем параллельно))
         List<PassPredictionDto> allPasses = leoSatellites.parallelStream()
                 .map(sat -> predict(sat, lat, lon, hoursAhead))
                 .flatMap(List::stream)

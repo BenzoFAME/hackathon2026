@@ -55,7 +55,7 @@ Accept: application/json
 
 ### Пролеты МКС над Ростовом-на-Дону на 24 часа
 # (широта и долгота для тестов)
-GET {{host}}/api/satellites/25544/passes?lat=47.2313&lon=39.7233&hours=24
+GET {{host}}/api/satellites/7530/passes?lat=47.2313&lon=39.7233&hours=24
 Accept: application/json
 
 ### Батч-предсказание (Все активные LEO спутники над точкой)

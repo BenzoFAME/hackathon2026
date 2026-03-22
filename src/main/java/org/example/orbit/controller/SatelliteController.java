@@ -61,6 +61,7 @@ public class SatelliteController {
     public SatelliteCardDto card (@PathVariable Integer noradId){
         return satelliteService.getCard(noradId);
     }
+
     @GetMapping("/{noradId}/passes")
     public List<PassPredictionDto> passes(@PathVariable Integer noradId,
                                           @RequestParam double lat,
